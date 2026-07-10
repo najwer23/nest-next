@@ -4,29 +4,14 @@ import {
   Get,
   Param,
   Post,
-  Req,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { Role } from '@prisma/client';
+
+import type { User } from '@prisma/client';
+
+import { CurrentUser } from '../common/decorators';
 
 import { CreateReportDto } from './dto/create-report.dto';
-import { ReportsService, RequestUser } from './reports.service';
-
-type AuthRequest = Request & {
-  user: {
-    id: string;
-    role: Role;
-    isActive: boolean;
-  };
-};
-
-function toRequestUser(user: AuthRequest['user']): RequestUser {
-  return {
-    id: user.id,
-    role: user.role,
-    isActive: user.isActive,
-  };
-}
+import { ReportsService } from './reports.service';
 
 @Controller('reports')
 export class ReportsController {
@@ -36,32 +21,32 @@ export class ReportsController {
 
   @Post()
   create(
-    @Req() req: AuthRequest,
+    @CurrentUser() user: User,
     @Body() dto: CreateReportDto,
   ) {
     return this.reportsService.create(
-      toRequestUser(req.user),
+      user,
       dto,
     );
   }
 
   @Get()
   list(
-    @Req() req: AuthRequest,
+    @CurrentUser() user: User,
   ) {
     return this.reportsService.list(
-      toRequestUser(req.user),
+      user,
     );
   }
 
   @Get(':id')
   get(
-    @Req() req: AuthRequest,
+    @CurrentUser() user: User,
     @Param('id') id: string,
   ) {
     return this.reportsService.getById(
       id,
-      toRequestUser(req.user),
+      user,
     );
   }
 }
