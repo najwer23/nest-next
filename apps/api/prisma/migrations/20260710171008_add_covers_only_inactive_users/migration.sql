@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Report" ADD COLUMN     "coversOnlyInactiveUsers" BOOLEAN NOT NULL DEFAULT false,
+ALTER COLUMN "isEmpty" DROP DEFAULT,
+ALTER COLUMN "status" DROP DEFAULT;

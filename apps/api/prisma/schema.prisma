@@ -26,6 +26,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   analyses Analysis[]
+  reports  Report[]
 
   @@map("users")
 }
@@ -48,4 +49,25 @@ model Analysis {
 
   @@index([userId])
   @@index([textHash])
+}
+
+enum ReportStatus {
+  COMPLETED
+}
+
+
+model Report {
+  id                       String   @id @default(cuid())
+  requestedBy              String
+  dateFrom                 DateTime
+  dateTo                   DateTime
+  isEmpty                  Boolean
+  coversOnlyInactiveUsers  Boolean  @default(false)
+  data                     Json
+  status                   ReportStatus
+  createdAt                DateTime @default(now())
+
+  user User @relation(fields: [requestedBy], references: [id])
+
+  @@index([requestedBy])
 }
