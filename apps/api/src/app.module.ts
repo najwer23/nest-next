@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     UsersModule,
     HealthModule,
     AnalyticsModule,
+    ReportsModule
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
