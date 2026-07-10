@@ -1,14 +1,16 @@
 import ReportGenerator from "@/components/reports/report-generator";
 import ReportList from "@/components/reports/report-list";
+import type { Metadata } from "next";
 
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+export const metadata: Metadata = { title: "Reports — UserHub" };
+
 export default async function ReportsPage(): Promise<React.JSX.Element> {
   const cookieStore = await cookies();
 
-  const accessToken =
-    cookieStore.get("accessToken")?.value;
+  const accessToken = cookieStore.get("accessToken")?.value;
 
   if (!accessToken) {
     notFound();
@@ -27,7 +29,6 @@ export default async function ReportsPage(): Promise<React.JSX.Element> {
        <ReportList
         accessToken={accessToken}
       />
-
     </>
   );
 }

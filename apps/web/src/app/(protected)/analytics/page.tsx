@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import AnalyticsForm from "../../../components/analytics/analytics-form";
 import AnalysisHistory from "@/components/analytics/analysis-history";
 import { getMeApi } from "@/lib/api/users";
+import type { Metadata } from "next";
 
+export const metadata: Metadata = { title: "Analytics — UserHub" };
 
 export default async function AnalyticsPage() {
   const cookieStore = await cookies();
