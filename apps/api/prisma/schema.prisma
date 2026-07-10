@@ -25,5 +25,18 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  analyses     Analysis[]
+
   @@map("users")
+}
+
+model Analysis {
+  id         String   @id @default(cuid())
+  text       String
+  sentiment  String
+  keywords   String[]
+  createdAt  DateTime @default(now())
+
+  userId     String
+  user       User @relation(fields: [userId], references: [id])
 }
