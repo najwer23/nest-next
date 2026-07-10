@@ -1,7 +1,8 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { createHash } from 'crypto';
 
+import { DomainException } from '../common/exceptions/domain.exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyzeDto } from './dto/analyze.dto';
 
@@ -22,6 +23,14 @@ export class AnalyticsService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  private unavailableError(message: string): DomainException {
+    return new DomainException(
+      'ANALYTICS_PROVIDER_UNAVAILABLE',
+      message,
+      503,
+    );
+  }
+
   private validateExternalResponse(data: unknown): ExternalAnalysisResponse {
     if (
       typeof data !== 'object' ||
@@ -29,10 +38,9 @@ export class AnalyticsService {
       !('sentiment' in data) ||
       !('keywords' in data)
     ) {
-      throw new ServiceUnavailableException({
-        errorCode: 'ANALYTICS_PROVIDER_UNAVAILABLE',
-        message: 'Invalid analytics provider response',
-      });
+      throw this.unavailableError(
+        'Invalid analytics provider response',
+      );
     }
 
     const { sentiment, keywords } = data;
@@ -44,10 +52,9 @@ export class AnalyticsService {
         (keyword): keyword is string => typeof keyword === 'string',
       )
     ) {
-      throw new ServiceUnavailableException({
-        errorCode: 'ANALYTICS_PROVIDER_UNAVAILABLE',
-        message: 'Invalid analytics provider response',
-      });
+      throw this.unavailableError(
+        'Invalid analytics provider response',
+      );
     }
 
     return {
@@ -56,9 +63,7 @@ export class AnalyticsService {
     };
   }
 
-  private async callAnalyticsProvider(
-    text: string,
-  ): Promise<ExternalAnalysisResponse> {
+  private async callAnalyticsProvider(text: string): Promise<ExternalAnalysisResponse> {
     const maxRetries = 2;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -87,22 +92,24 @@ export class AnalyticsService {
         const data: unknown = await response.json();
 
         return this.validateExternalResponse(data);
-      } catch {
+      } catch (error) {
+        if (error instanceof DomainException) {
+          throw error;
+        }
+
         if (attempt === maxRetries) {
-          throw new ServiceUnavailableException({
-            errorCode: 'ANALYTICS_PROVIDER_UNAVAILABLE',
-            message: 'Analytics provider unavailable',
-          });
+          throw this.unavailableError(
+            'Analytics provider unavailable',
+          );
         }
 
         await this.delay(300 * (attempt + 1));
       }
     }
 
-    throw new ServiceUnavailableException({
-      errorCode: 'ANALYTICS_PROVIDER_UNAVAILABLE',
-      message: 'Analytics provider unavailable',
-    });
+    throw this.unavailableError(
+      'Analytics provider unavailable',
+    );
   }
 
   async analyze(userId: string, dto: AnalyzeDto) {
