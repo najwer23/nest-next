@@ -2,9 +2,16 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 
-import { Role } from '@prisma/client';
+import {
+  Test,
+  TestingModule,
+} from '@nestjs/testing';
+
+import {
+  Role,
+  type User,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,6 +19,7 @@ import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
   let service: ReportsService;
+  let module: TestingModule;
 
   const prisma = {
     analysis: {
@@ -24,34 +32,51 @@ describe('ReportsService', () => {
     },
   };
 
-  const analyst = {
+
+  const analyst: Pick<
+    User,
+    'id' | 'role' | 'isActive'
+  > = {
     id: 'analyst-1',
     role: Role.ANALYST,
     isActive: true,
-  } as any;
+  };
 
-  const manager = {
+
+  const manager: Pick<
+    User,
+    'id' | 'role' | 'isActive'
+  > = {
     id: 'manager-1',
     role: Role.MANAGER,
     isActive: true,
-  } as any;
+  };
 
-  const admin = {
+
+  const admin: Pick<
+    User,
+    'id' | 'role' | 'isActive'
+  > = {
     id: 'admin-1',
     role: Role.ADMIN,
     isActive: true,
-  } as any;
+  };
 
-  const inactive = {
+
+  const inactive: Pick<
+    User,
+    'id' | 'role' | 'isActive'
+  > = {
     id: 'inactive-1',
     role: Role.ANALYST,
     isActive: false,
-  } as any;
+  };
+
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    const module: TestingModule =
+    module =
       await Test.createTestingModule({
         providers: [
           ReportsService,
@@ -62,16 +87,24 @@ describe('ReportsService', () => {
         ],
       }).compile();
 
+
     service =
       module.get<ReportsService>(
         ReportsService,
       );
   });
 
+
+  afterEach(async () => {
+    await module.close();
+  });
+
+
   it('creates report', async () => {
     prisma.analysis.findMany.mockResolvedValue([
       {
         sentiment: 'positive',
+        status: 'SUCCESS',
         user: {
           id: 'u1',
           isActive: true,
@@ -79,6 +112,7 @@ describe('ReportsService', () => {
       },
       {
         sentiment: 'negative',
+        status: 'SUCCESS',
         user: {
           id: 'u2',
           isActive: true,
@@ -86,9 +120,11 @@ describe('ReportsService', () => {
       },
     ]);
 
+
     prisma.report.create.mockResolvedValue({
       id: 'report-1',
     });
+
 
     const result =
       await service.create(
@@ -99,21 +135,35 @@ describe('ReportsService', () => {
         },
       );
 
+
     expect(
       prisma.report.create,
     ).toHaveBeenCalled();
+
 
     expect(result.id).toBe(
       'report-1',
     );
   });
 
-  it('creates empty report', async () => {
-    prisma.analysis.findMany.mockResolvedValue([]);
+
+  it('excludes FAILED analyses from report aggregations', async () => {
+    prisma.analysis.findMany.mockResolvedValue([
+      {
+        sentiment: 'positive',
+        status: 'SUCCESS',
+        user: {
+          id: 'u1',
+          isActive: true,
+        },
+      },
+    ]);
+
 
     prisma.report.create.mockResolvedValue({
-      id: 'empty',
+      id: 'report-1',
     });
+
 
     await service.create(
       analyst,
@@ -122,6 +172,58 @@ describe('ReportsService', () => {
         dateTo: '2026-01-10',
       },
     );
+
+
+    expect(
+      prisma.analysis.findMany,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'SUCCESS',
+        }),
+      }),
+    );
+
+
+    expect(
+      prisma.report.create,
+    ).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        data: {
+          analysisCount: 1,
+          sentimentDistribution: {
+            positive: 1,
+            negative: 0,
+            neutral: 0,
+          },
+          mostActiveUsers: [
+            {
+              userId: 'u1',
+              count: 1,
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+
+  it('creates empty report when no analyses exist', async () => {
+    prisma.analysis.findMany.mockResolvedValue([]);
+
+    prisma.report.create.mockResolvedValue({
+      id: 'empty-report',
+    });
+
+
+    await service.create(
+      analyst,
+      {
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-10',
+      },
+    );
+
 
     expect(
       prisma.report.create,
@@ -132,7 +234,8 @@ describe('ReportsService', () => {
     });
   });
 
-  it('blocks inactive users', async () => {
+
+  it('blocks inactive users from reports', async () => {
     await expect(
       service.list(inactive),
     ).rejects.toThrow(
@@ -140,16 +243,18 @@ describe('ReportsService', () => {
     );
   });
 
-  it('manager cannot access another report', async () => {
+
+  it('manager cannot access another user report', async () => {
     prisma.report.findUnique.mockResolvedValue({
-      id: '1',
-      requestedBy: 'someone-else',
+      id: 'report-1',
+      requestedBy: 'another-user',
       coversOnlyInactiveUsers: false,
     });
 
+
     await expect(
       service.getById(
-        '1',
+        'report-1',
         manager,
       ),
     ).rejects.toThrow(
@@ -157,16 +262,18 @@ describe('ReportsService', () => {
     );
   });
 
-  it('manager cannot access inactive-only report', async () => {
+
+  it('manager cannot access inactive-only reports', async () => {
     prisma.report.findUnique.mockResolvedValue({
-      id: '1',
+      id: 'report-1',
       requestedBy: manager.id,
       coversOnlyInactiveUsers: true,
     });
 
+
     await expect(
       service.getById(
-        '1',
+        'report-1',
         manager,
       ),
     ).rejects.toThrow(
@@ -174,29 +281,42 @@ describe('ReportsService', () => {
     );
   });
 
+
   it('admin can access any report', async () => {
     prisma.report.findUnique.mockResolvedValue({
-      id: '1',
-      requestedBy: 'someone',
+      id: 'report-1',
+      requestedBy: 'another-user',
       coversOnlyInactiveUsers: true,
+      data: {
+        analysisCount: 10,
+        sentimentDistribution: {
+          positive: 5,
+          negative: 3,
+          neutral: 2,
+        },
+        mostActiveUsers: [],
+      },
     });
+
 
     await expect(
       service.getById(
-        '1',
+        'report-1',
         admin,
       ),
     ).resolves.toBeDefined();
   });
+
 
   it('throws when report does not exist', async () => {
     prisma.report.findUnique.mockResolvedValue(
       null,
     );
 
+
     await expect(
       service.getById(
-        '1',
+        'report-1',
         admin,
       ),
     ).rejects.toThrow(
