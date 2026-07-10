@@ -65,11 +65,11 @@ export default function AnalyticsForm({
       setStatus("success");
 
       refreshHistory();
-    } catch (err: any) {
-
+    } catch (err: unknown) {
       setError(
-        err?.message ??
-        "Analysis failed",
+        err instanceof Error
+          ? err.message
+          : "Analysis failed",
       );
 
       setStatus("failed");

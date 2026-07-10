@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
 import { createHash } from 'crypto';
 
@@ -15,31 +12,36 @@ type ExternalAnalysisResponse = {
 
 @Injectable()
 export class AnalyticsService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private hashText(text: string): string {
-    return createHash('sha256')
-      .update(text.trim())
-      .digest('hex');
+    return createHash('sha256').update(text.trim()).digest('hex');
   }
 
   private async delay(ms: number): Promise<void> {
-    return new Promise((resolve) =>
-      setTimeout(resolve, ms),
-    );
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private validateExternalResponse(
-    data: any,
-  ): ExternalAnalysisResponse {
+  private validateExternalResponse(data: unknown): ExternalAnalysisResponse {
     if (
-      !data ||
-      typeof data.sentiment !== 'string' ||
-      !Array.isArray(data.keywords) ||
-      !data.keywords.every(
-        (keyword: unknown) => typeof keyword === 'string',
+      typeof data !== 'object' ||
+      data === null ||
+      !('sentiment' in data) ||
+      !('keywords' in data)
+    ) {
+      throw new ServiceUnavailableException({
+        errorCode: 'ANALYTICS_PROVIDER_UNAVAILABLE',
+        message: 'Invalid analytics provider response',
+      });
+    }
+
+    const { sentiment, keywords } = data;
+
+    if (
+      typeof sentiment !== 'string' ||
+      !Array.isArray(keywords) ||
+      !keywords.every(
+        (keyword): keyword is string => typeof keyword === 'string',
       )
     ) {
       throw new ServiceUnavailableException({
@@ -49,8 +51,8 @@ export class AnalyticsService {
     }
 
     return {
-      sentiment: data.sentiment,
-      keywords: data.keywords,
+      sentiment,
+      keywords,
     };
   }
 
@@ -59,46 +61,32 @@ export class AnalyticsService {
   ): Promise<ExternalAnalysisResponse> {
     const maxRetries = 2;
 
-    for (
-      let attempt = 0;
-      attempt <= maxRetries;
-      attempt++
-    ) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const controller = new AbortController();
 
-        const timeout = setTimeout(
-          () => controller.abort(),
-          3000,
-        );
+        const timeout = setTimeout(() => controller.abort(), 3000);
 
-        const response = await fetch(
-          'http://localhost:3002/analyze',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              text,
-            }),
-            signal: controller.signal,
+        const response = await fetch('http://localhost:3002/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        );
+          body: JSON.stringify({
+            text,
+          }),
+          signal: controller.signal,
+        });
 
         clearTimeout(timeout);
 
         if (!response.ok) {
-          throw new Error(
-            'Provider returned error',
-          );
+          throw new Error('Provider returned error');
         }
 
-        const data = await response.json();
+        const data: unknown = await response.json();
 
-        return this.validateExternalResponse(
-          data,
-        );
+        return this.validateExternalResponse(data);
       } catch {
         if (attempt === maxRetries) {
           throw new ServiceUnavailableException({
@@ -107,9 +95,7 @@ export class AnalyticsService {
           });
         }
 
-        await this.delay(
-          300 * (attempt + 1),
-        );
+        await this.delay(300 * (attempt + 1));
       }
     }
 
@@ -119,34 +105,25 @@ export class AnalyticsService {
     });
   }
 
-  async analyze(
-    userId: string,
-    dto: AnalyzeDto,
-  ) {
+  async analyze(userId: string, dto: AnalyzeDto) {
     const textHash = this.hashText(dto.text);
 
-    const existing =
-      await this.prisma.analysis.findFirst({
-        where: {
-          userId,
-          textHash,
-          createdAt: {
-            gte: new Date(
-              Date.now() - 5 * 60 * 1000,
-            ),
-          },
+    const existing = await this.prisma.analysis.findFirst({
+      where: {
+        userId,
+        textHash,
+        createdAt: {
+          gte: new Date(Date.now() - 5 * 60 * 1000),
         },
-      });
+      },
+    });
 
     if (existing) {
       return existing;
     }
 
     try {
-      const result =
-        await this.callAnalyticsProvider(
-          dto.text,
-        );
+      const result = await this.callAnalyticsProvider(dto.text);
 
       return this.prisma.analysis.create({
         data: {
@@ -172,32 +149,26 @@ export class AnalyticsService {
     }
   }
 
-  async history(
-    userId: string,
-    page = 1,
-    limit = 10,
-  ) {
+  async history(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
-    const [items, total] =
-      await this.prisma.$transaction([
-        this.prisma.analysis.findMany({
-          where: {
-            userId,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          skip,
-          take: limit,
-        }),
-
-        this.prisma.analysis.count({
-          where: {
-            userId,
-          },
-        }),
-      ]);
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.analysis.findMany({
+        where: {
+          userId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.analysis.count({
+        where: {
+          userId,
+        },
+      }),
+    ]);
 
     return {
       items,
@@ -205,9 +176,7 @@ export class AnalyticsService {
         page,
         limit,
         total,
-        pages: Math.ceil(
-          total / limit,
-        ),
+        pages: Math.ceil(total / limit),
       },
     };
   }

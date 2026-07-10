@@ -24,7 +24,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AuthModule,
     UsersModule,
     HealthModule,
-    AnalyticsModule
+    AnalyticsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
