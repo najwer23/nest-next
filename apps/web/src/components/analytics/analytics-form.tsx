@@ -132,7 +132,7 @@ export default function AnalyticsForm({
               <strong>
                 Keywords:
               </strong>{" "}
-              {result.keywords.join(", ")}
+              {result.keywords?.join(", ")}
             </p>
 
             <p className="mt-2">

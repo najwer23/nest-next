@@ -119,7 +119,7 @@ export default function AnalysisHistory({
 
           <p>
             <strong>Keywords:</strong>{" "}
-            {item.keywords.join(", ")}
+            {item.keywords?.join(", ")}
           </p>
 
           <p className="text-sm text-black">
