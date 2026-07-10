@@ -42,6 +42,12 @@ export function Navigation(): React.JSX.Element {
               Users
             </a>
           )}
+          <a
+            href="/analytics"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            Analytics
+          </a>
           <button
             onClick={handleLogout}
             className="rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"

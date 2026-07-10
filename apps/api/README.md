@@ -27,6 +27,8 @@ docker compose up -d db          # from repo root
 pnpm prisma migrate dev
 pnpm prisma db seed
 pnpm start:dev
+
+npx prisma studio  
 ```
 
 ## Tests
