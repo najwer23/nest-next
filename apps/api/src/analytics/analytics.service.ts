@@ -67,19 +67,14 @@ export class AnalyticsService {
     const maxRetries = 2;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+
       try {
-        const controller = new AbortController();
-
-        const timeout = setTimeout(() => controller.abort(), 3000);
-
         const response = await fetch('http://localhost:3002/analyze', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
           signal: controller.signal,
         });
 
@@ -90,26 +85,23 @@ export class AnalyticsService {
         }
 
         const data: unknown = await response.json();
-
         return this.validateExternalResponse(data);
       } catch (error) {
+        clearTimeout(timeout);
+
         if (error instanceof DomainException) {
           throw error;
         }
 
         if (attempt === maxRetries) {
-          throw this.unavailableError(
-            'Analytics provider unavailable',
-          );
+          throw this.unavailableError('Analytics provider unavailable');
         }
 
         await this.delay(300 * (attempt + 1));
       }
     }
 
-    throw this.unavailableError(
-      'Analytics provider unavailable',
-    );
+    throw this.unavailableError('Analytics provider unavailable');
   }
 
   async analyze(userId: string, dto: AnalyzeDto) {
