@@ -31,12 +31,15 @@ model User {
 }
 
 model Analysis {
-  id         String   @id @default(cuid())
-  text       String
-  sentiment  String
-  keywords   String[]
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  text        String
+  textHash    String
+  sentiment   String
+  keywords    String[]
+  createdAt   DateTime @default(now())
 
-  userId     String
-  user       User @relation(fields: [userId], references: [id])
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+
+  @@index([userId, textHash, createdAt])
 }

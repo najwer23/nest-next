@@ -4,12 +4,40 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyzeDto } from './dto/analyze.dto';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private hashText(text: string): string {
+    return createHash("sha256")
+      .update(text.trim())
+      .digest("hex");
+  }
+
   async analyze(userId: string, dto: AnalyzeDto) {
+    const textHash = this.hashText(dto.text);
+
+    const existing =
+      await this.prisma.analysis.findFirst({
+        where: {
+          userId,
+          textHash,
+          createdAt: {
+            gte: new Date(
+              Date.now() - 5 * 60 * 1000,
+            ),
+          },
+        },
+      });
+
+      console.log(existing)
+
+    if (existing) {
+      return existing;
+    }
+
     const response = await fetch('http://localhost:3002/analyze', {
       method: 'POST',
       headers: {
@@ -24,13 +52,11 @@ export class AnalyticsService {
 
     const result = await response.json();
 
-    console.log("id: " + userId)
-    console.log(result)
-
     return this.prisma.analysis.create({
       data: {
         userId,
         text: dto.text,
+        textHash,
         sentiment: result.sentiment,
         keywords: result.keywords,
       },

@@ -7,12 +7,7 @@ import { getMeApi } from "@/lib/api/users";
 
 export default async function AnalyticsPage() {
   const cookieStore = await cookies();
-
   const accessToken = cookieStore.get("accessToken")?.value;
-
-  const userId = cookieStore.get("userId")?.value;
-
-  console.log("sss " + userId)
 
   if (!accessToken) {
     notFound();

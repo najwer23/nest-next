@@ -19,6 +19,9 @@ cd apps/api && npx prisma migrate dev && npx prisma db seed && cd ../..
 
 # 4. Start all services
 pnpm --filter api start:dev & pnpm --filter web dev & pnpm --filter mock-analytics start:dev
+
+# 5. Kill old node instances
+pkill -f node
 ```
 
 Services:
