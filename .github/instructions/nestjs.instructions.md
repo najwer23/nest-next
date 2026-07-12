@@ -1,6 +1,5 @@
 # NestJS Standards
 
-- Follow the app architecture: controller → feature service → entity service → repository → Prisma.
 - Controllers should only handle HTTP concerns: request validation, routing, metadata logging, and returning DTOs.
 - Services own business logic, orchestration, and domain rules.
 - Entity services enforce domain invariants and translate repository results into application-level models or errors.
